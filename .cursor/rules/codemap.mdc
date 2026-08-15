@@ -1,0 +1,30 @@
+---
+description: Build an explorable isometric diagram of a codebase — blocks on a grid, a component index, a what-it-does/how-it's-built panel, and real data moving along the edges. Use when asked to map, diagram or visually explain how a system fits together.
+globs:
+alwaysApply: false
+---
+
+Read `SKILL.md` in this repository and follow it. If codemap is installed
+elsewhere, read the `SKILL.md` from that copy.
+
+The rendering is already written — `assets/template.html` is complete, and
+building a map means replacing the `STATS`, `NODES`, `EDGES` and `REGIONS`
+arrays plus the `<title>` and the `<svg aria-label>`. `REGIONS` draws a dashed
+outline around the parts the repository does not own — the blocks inside it are
+drawn dashed too — and may be left empty.
+
+Spend the effort instead on mining the repository for facts a reader could not
+get from the file listing: measured numbers, platform limits the code works
+around, comments explaining why a constant is the value it is.
+
+Put real values on the edges. `2 OpenWrite 0 2 0 3` teaches; `Instruction` does not.
+
+Then run both checks, and look at the render before handing it over:
+
+```bash
+python3 scripts/verify.py my-map.html
+python3 scripts/render.py my-map.html render.png
+```
+
+Every fault that mattered while this was built passed the static checks and was
+obvious in the render.

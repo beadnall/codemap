@@ -1,0 +1,736 @@
+<title>REPLACE — name the system, not the page</title>
+<style>
+  :root{
+    --ground:#0C1014; --panel:#12171F; --rule:#1E2733; --grid:#161D26;
+    --ink:#C7D0DC; --dim:#7B8798; --faint:#4A5567;
+    --blue:#2581E9; --blue-soft:#6BA8F2; --blue-deep:#12365F;
+    --orange:#F2701D; --orange-soft:#F79954;
+    --face-top:#25303E; --face-left:#19212B; --face-right:#121821;
+    --region:#38485C; --region-on:#3C74B4;
+    --region-ink:#5C6A7E; --region-ink-on:#8FB4DE;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:var(--mono); font-size:12px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{display:flex; flex-direction:column; height:100vh; min-height:600px}
+
+  /* ---------- top strip ---------- */
+  .stats{
+    display:flex; flex-wrap:wrap; align-items:stretch;
+    border-bottom:1px solid var(--rule); background:var(--panel);
+  }
+  .stat{padding:7px 14px; border-right:1px solid var(--rule); min-width:0}
+  .stat:last-child{border-right:0}
+  .stat .k{
+    font-size:8.5px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--faint); white-space:nowrap;
+  }
+  .stat .v{font-size:12px; color:var(--ink); white-space:nowrap; font-variant-numeric:tabular-nums}
+  .stat.lead .v{color:var(--blue-soft)}
+  .controls{margin-left:auto; display:flex; align-items:center; gap:6px; padding:0 12px}
+  button{
+    font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink); background:transparent; border:1px solid var(--rule);
+    padding:5px 9px; cursor:pointer;
+  }
+  button:hover{border-color:var(--blue); color:var(--blue-soft)}
+  button:focus-visible{outline:2px solid var(--orange); outline-offset:1px}
+  button[aria-pressed="true"]{border-color:var(--orange); color:var(--orange-soft)}
+
+  /* ---------- three columns ---------- */
+  .body{display:flex; flex:1; min-height:0}
+
+  .index{
+    width:212px; flex:none; border-right:1px solid var(--rule);
+    overflow-y:auto; background:var(--panel);
+  }
+  .grp{
+    font-size:8.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--faint); padding:12px 12px 5px;
+  }
+  .row{
+    display:flex; gap:8px; align-items:baseline; width:100%;
+    padding:4px 12px; border:0; border-left:2px solid transparent;
+    background:transparent; color:var(--dim); text-align:left; cursor:pointer;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.02em;
+  }
+  .row:hover{color:var(--ink); background:#161C25}
+  .row[aria-current="true"]{color:var(--ink); border-left-color:var(--blue); background:#151E2B}
+  .row .c{color:var(--faint); width:12px; flex:none}
+  .row[aria-current="true"] .c{color:var(--blue-soft)}
+  .row .n{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .row .t{color:var(--faint); font-size:8.5px; letter-spacing:.1em}
+
+  .stage{flex:1; min-width:0; position:relative; overflow:hidden; background:var(--ground)}
+  svg{display:block; width:100%; height:100%; touch-action:none; cursor:grab}
+  svg.dragging{cursor:grabbing}
+  .node-hit{cursor:pointer}
+  .node-hit:focus-visible{outline:none}
+  .flow-dot{cursor:pointer}
+
+  /* ---------- right panel ---------- */
+  .read{
+    width:340px; flex:none; border-left:1px solid var(--rule);
+    background:var(--panel); display:flex; flex-direction:column; min-height:0;
+  }
+  .tabs{display:flex; border-bottom:1px solid var(--rule)}
+  .tab{
+    flex:1; padding:8px 10px; border:0; border-bottom:2px solid transparent;
+    background:transparent; color:var(--faint); cursor:pointer;
+    font-family:var(--mono); font-size:8.5px; letter-spacing:.14em; text-transform:uppercase;
+  }
+  .tab[aria-selected="true"]{color:var(--ink); border-bottom-color:var(--blue)}
+  .tab:hover{color:var(--ink)}
+  .read-body{padding:16px 18px 28px; overflow-y:auto; flex:1}
+  .eyebrow{
+    font-size:8.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--faint); margin:0 0 6px;
+  }
+  .read h2{
+    font-family:var(--mono); font-size:19px; font-weight:500; letter-spacing:-.01em;
+    margin:0 0 4px; color:var(--ink); text-wrap:balance;
+  }
+  .sub{color:var(--dim); font-size:11px; margin:0 0 18px}
+  .read h3{
+    font-size:8.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--faint); margin:20px 0 7px; font-weight:400;
+  }
+  .read p{font-family:var(--sans); font-size:13px; line-height:1.62; color:var(--ink); margin:0 0 11px; max-width:62ch}
+  .read p.quiet{color:var(--dim)}
+  mark{background:var(--blue-deep); color:var(--blue-soft); padding:0 3px; border-radius:1px}
+  code{font-family:var(--mono); font-size:11.5px; color:var(--orange-soft); background:#1A1F27; padding:1px 4px}
+  .facts{display:grid; grid-template-columns:auto 1fr; gap:5px 12px; margin:10px 0 0}
+  .facts dt{font-size:8.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--faint); padding-top:2px}
+  .facts dd{margin:0; font-size:11.5px; color:var(--ink); font-variant-numeric:tabular-nums}
+
+  /* Dashed, to match the outline the reader just clicked inside. */
+  .origin{border:1px dashed var(--region); padding:8px 10px; margin:0 0 18px}
+  .origin .who{
+    display:block; font-size:8.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--region-ink-on);
+  }
+  .origin .what{display:block; margin-top:3px; font-size:11px; color:var(--dim)}
+
+  .snippet{border:1px solid var(--rule); border-left:2px solid var(--orange); padding:11px 13px; margin:0 0 14px; background:#141920}
+  .snippet .lbl{font-size:8.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); margin-bottom:5px}
+  .snippet .val{font-size:13px; color:var(--orange-soft); word-break:break-all}
+  .snippet .whence{font-size:10.5px; color:var(--dim); margin-top:6px}
+
+  /* ---------- bottom strip ---------- */
+  .hints{
+    border-top:1px solid var(--rule); background:var(--panel);
+    padding:6px 14px; color:var(--faint);
+    font-size:8.5px; letter-spacing:.13em; text-transform:uppercase;
+    display:flex; gap:18px; flex-wrap:wrap;
+  }
+
+  @media (max-width:1100px){
+    .index{width:170px}
+    .read{width:290px}
+  }
+  @media (max-width:820px){
+    .body{flex-direction:column}
+    .index{width:auto; max-height:150px; border-right:0; border-bottom:1px solid var(--rule)}
+    .read{width:auto; max-height:44vh; border-left:0; border-top:1px solid var(--rule)}
+    .stage{min-height:280px}
+  }
+  @media (prefers-reduced-motion:reduce){ .flow-dot{display:none} }
+</style>
+
+<div class="shell">
+  <div class="stats" id="stats"></div>
+
+  <div class="body">
+    <nav class="index" id="index" aria-label="Components"></nav>
+
+    <div class="stage">
+      <svg id="svg" role="img" aria-label="REPLACE — one sentence naming the system and the path through it, for screen readers">
+        <defs>
+          <pattern id="iso" width="144" height="72" patternUnits="userSpaceOnUse">
+            <path d="M0 36 L72 0 L144 36 L72 72 Z" fill="none" stroke="#161D26" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect id="bg" x="-4000" y="-4000" width="8000" height="8000" fill="url(#iso)"/>
+        <g id="world">
+          <!-- Regions are a footprint on the floor, so they go under
+               everything the floor carries. -->
+          <g id="regions"></g>
+          <g id="edges"></g>
+          <g id="dots"></g>
+          <g id="nodes"></g>
+          <!-- Labels last, so a block drawn in front of another cannot
+               paint over its neighbour's name. -->
+          <g id="labels"></g>
+        </g>
+      </svg>
+    </div>
+
+    <aside class="read">
+      <div class="tabs" role="tablist">
+        <button class="tab" id="tab-does" role="tab" aria-selected="true">What it does</button>
+        <button class="tab" id="tab-built" role="tab" aria-selected="false">How it's built</button>
+      </div>
+      <div class="read-body" id="read"></div>
+    </aside>
+  </div>
+
+  <div class="hints">
+    <span>Click a block to read it</span>
+    <span>Click a moving dot to inspect the data</span>
+    <span>Space pauses the flow</span>
+    <span>Drag to pan</span>
+    <span>Scroll to zoom</span>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ data
+ *
+ * EVERYTHING BELOW THIS COMMENT IS THE ONLY PART YOU CHANGE.
+ *
+ * The four arrays are STATS, NODES, EDGES and REGIONS. The chrome, the isometric
+ * projection, the panning and the animation underneath all work already and
+ * do not need touching. What decides whether the diagram is worth anything is
+ * entirely the content you put here — see SKILL.md, "Fill it with facts".
+ *
+ * The values shown here are from a real project, kept as a worked example of
+ * the level of specificity to aim for. Replace them; do not imitate their
+ * subject.
+ */
+
+// TEMPLATE-EXAMPLE-DATA — delete this line once the four arrays below
+// describe your own system. scripts/verify.py fails while it is here.
+const STATS = [
+  ["Repository", "SQLite", true],
+  ["Library", "155.8 KSLOC · 3.42.0"],
+  ["Test code", "590× the library"],
+  ["Branch · MC/DC", "100% · 100%"],
+  ["Fuzzing", "~1 bn mutations a day"],
+  ["Page size", "512 – 65,536 bytes"],
+  ["Licence", "public domain"],
+];
+
+// gx, gy are isometric grid coordinates; h is block height, used for weight.
+const NODES = [
+  // ---- what you hand it
+  {c:"I", id:"api",   name:"Interface", grp:"What you hand it", gx:0, gy:0, h:24,
+   sub:"prepare, step, finalize",
+   does:"The library's front door. A statement is compiled once and stepped many times, and all of it runs <em>inside the calling process</em> — no server, no socket, no second machine. Nearly every decision further down follows from that one.",
+   built:"<code>main.c</code>, <code>legacy.c</code>, <code>vdbeapi.c</code>. <code>sqlite3_step()</code> is the only thing that runs bytecode.",
+   facts:[["Library","155.8 KSLOC at 3.42.0"],["Licence","public domain"]]},
+
+  {c:"T", id:"tok",   name:"Tokenizer", grp:"What you hand it", gx:0, gy:1, h:14,
+   sub:"Text, one token at a time",
+   does:"Breaks the statement into tokens. The only part of SQLite that sees SQL as characters rather than as structure.",
+   built:"<code>tokenize.c</code>, hand-written — which is worth noticing, because the parser immediately after it is not.",
+   facts:[["Sees","the statement text"]]},
+
+  {c:"P", id:"parse", name:"Parser", grp:"What you hand it", gx:1, gy:1, h:20,
+   sub:"Tokens into a parse tree",
+   does:"Assigns meaning to the token sequence. Here a statement stops being a string and becomes a shape the rest of the library can walk.",
+   built:"<code>parse.y</code>, turned into C by Lemon. Lemon lives <em>in the tree</em> at <code>tool/lemon.c</code> rather than being depended on from outside, so building SQLite needs no parser generator installed.",
+   facts:[["Grammar","parse.y"],["Generator","Lemon, kept in-tree"]]},
+
+  {c:"S", id:"schema",name:"Schema", grp:"What you hand it", gx:1, gy:0, h:16,
+   sub:"The table of tables",
+   does:"What tables and indexes exist, and where each one's b-tree starts. It is stored as <mark>the original CREATE text</mark> rather than a binary catalogue, so opening a database means reading page 1 and re-parsing the SQL that built it.",
+   built:"<code>sqlite_schema</code>, rooted at page 1, which is always a table b-tree page.",
+   facts:[["Root page","1, always"],["Stored as","the CREATE statement text"]]},
+
+  // ---- deciding how
+  {c:"Q", id:"plan",  name:"Query planner", grp:"Deciding how", gx:2, gy:0, h:24,
+   sub:"Which table to join first",
+   does:"Picks the join order — the difference between a query returning now and returning after lunch. The old planner took the single cheapest next table at each step; on TPC-H Q8, an eight-way join, that chose a plan the documentation puts at <mark>roughly 750× slower</mark> than the best available.",
+   built:"<code>where.c</code>. The Next Generation Query Planner keeps the N best paths at each step instead of one — N=1 for a simple query, 10 once three or more tables join, 18 for a star schema. That is O(K·N), where exhaustive search is factorial and stops being possible somewhere past ten tables.",
+   facts:[["Introduced","3.8.0, in 2013"],["Paths kept","1 · 5 · 10 · 18"],["TPC-H Q8 cost","36.92 → 27.38"]]},
+
+  {c:"G", id:"gen",   name:"Code generator", grp:"Deciding how", gx:2, gy:1, h:20,
+   sub:"Parse tree into a program",
+   does:"Emits the bytecode. The thing a reader is least likely to guess about SQLite is here: it <em>compiles</em> SQL rather than interpreting it, and this is the largest part of the library by source.",
+   built:"<code>select.c</code>, <code>where.c</code>, <code>expr.c</code>, <code>insert.c</code>, <code>delete.c</code>, <code>update.c</code>, <code>build.c</code>.",
+   facts:[["Emits","a bytecode program"]]},
+
+  // ---- running the bytecode
+  {c:"V", id:"vdbe",  name:"Bytecode engine", grp:"Running the bytecode", gx:2, gy:2, h:22,
+   sub:"One instruction at a time",
+   does:"Runs the compiled program against open cursors. What makes it unusual is that it is not hidden: <code>EXPLAIN</code> prints the exact instructions that will run, so the compiler's output is documented, readable, and stable enough to write tests against.",
+   built:"<code>vdbe.c</code>, <code>vdbeaux.c</code>, <code>vdbemem.c</code>, calling out to <code>func.c</code> and <code>date.c</code> for SQL functions. Every instruction is an opcode plus five operands, P1 to P5, whose meaning depends on the opcode.",
+   facts:[["Operands","P1 – P5"],["Readable via","EXPLAIN"]]},
+
+  // ---- finding the bytes
+  {c:"B", id:"btree", name:"B-tree", grp:"Finding the bytes", gx:3, gy:1, h:22,
+   sub:"Tables and indexes, both",
+   does:"Turns a table into pages. Tables and indexes are the same structure here — the first byte of a page header says which, and whether the page is interior or leaf. Four values cover the whole file.",
+   built:"<code>btree.c</code>, the largest single source file in the library at about 407 KB. Page type flags are 0x02 interior index, 0x05 interior table, 0x0a leaf index, 0x0d leaf table.",
+   facts:[["Page types","0x02 · 0x05 · 0x0a · 0x0d"],["Source","~407 KB, the biggest"]]},
+
+  {c:"R", id:"pager", name:"Pager", grp:"Finding the bytes", gx:3, gy:2, h:22,
+   sub:"Where writes become atomic",
+   does:"The line the whole design pivots on. Everything above it thinks in pages and transactions; everything below thinks in bytes and syscalls. Making a commit all-or-nothing is entirely this module's problem.",
+   built:"<code>pager.c</code>, with <code>pcache.c</code> and <code>pcache1.c</code> holding pages in memory so that walking a b-tree is not a disk read per node. The file it manages opens with a 100-byte header beginning <code>SQLite format 3</code> and a zero byte — sixteen in all.",
+   facts:[["Header","100 bytes, magic 16"],["Page size","512 – 65,536, usually 4,096"]]},
+
+  {c:"W", id:"wal",   name:"Write-ahead log", grp:"Finding the bytes", gx:4, gy:3, h:18,
+   sub:"Readers and a writer at once",
+   does:"Appends changed pages to a second file instead of writing them in place, so readers stop blocking the writer. It buys that concurrency by <mark>giving up the network filesystem</mark>: the index making it fast is shared memory, so every process must be on one host.",
+   built:"<code>wal.c</code>. Checkpoints automatically once the log passes 1,000 pages. Past roughly 100 MB in a single transaction the older rollback journal is documented as faster, and the page size can no longer be changed once WAL is on.",
+   facts:[["Auto-checkpoint","1,000 pages"],["Requires","one host — no network FS"],["Wal-index","an mmapped -shm file"]]},
+
+  {c:"J", id:"jrnl",  name:"Rollback journal", grp:"Finding the bytes", gx:4, gy:4, h:20,
+   sub:"The other way round",
+   does:"Writes the original page out first, then changes the database in place, so a crash can be undone from the copy. Slower for readers, and still the right answer over a network filesystem or for a very large transaction.",
+   built:"Handled inside <code>pager.c</code> rather than in a file of its own.",
+   facts:[["Better past","~100 MB in one transaction"]]},
+
+  // ---- touching the disk
+  {c:"O", id:"vfs",   name:"OS interface", grp:"Touching the disk", gx:4, gy:1, h:26,
+   sub:"Every syscall, through one object",
+   does:"All file access goes through a single struct of function pointers. That is why SQLite ports to anything with a filesystem, and why you can hand it storage of your own at runtime without touching the library.",
+   built:"<code>os_unix.c</code> and <code>os_win.c</code>. The unix one runs to about 8,600 lines, the great majority of it concerned with locking rather than with reading and writing.",
+   facts:[["Swappable","yes — sqlite3_vfs_register"],["os_unix.c","~8,600 lines"]]},
+
+  {c:"K", id:"lock",  name:"File locking", grp:"Touching the disk", gx:4, gy:2, h:20,
+   sub:"Five states, one of them odd",
+   does:"Unlocked, shared, reserved, pending, exclusive. Pending exists for one reason: it admits no <em>new</em> readers, so a steady stream of them cannot starve a writer already waiting.",
+   built:"The comment above this code opens by calling POSIX advisory locks <mark>broken by design</mark>, citing the 1996 standard. Two locks taken by one process on the same inode override each other, so SQLite keeps its own per-inode table; and closing any descriptor on a file drops that process's locks on it, so closes are <em>deferred</em> until the last lock clears.",
+   facts:[["States","5"],["Cited","ANSI STD 1003.1 (1996) §6.5.2.2"],["Unusable on","NFS and many network filesystems"]]},
+
+  // ---- how it is proved
+  {c:"1", id:"tcl",   name:"TCL tests", grp:"How it is proved", gx:0, gy:2, h:16,
+   sub:"The suite that ships",
+   does:"The tests you get with the source, which is what lets you check a build you made yourself. Public domain, like the library.",
+   built:"27.2 KSLOC of C and about 23.2 MB of test scripts.",
+   facts:[["Cases","51,445 distinct"],["Licence","public domain"]]},
+
+  {c:"2", id:"th3",   name:"TH3", grp:"How it is proved", gx:0, gy:3, h:22,
+   sub:"Where the coverage claim comes from",
+   does:"The harness built to drive every branch. SQLite's 100% branch and MC/DC coverage is <mark>this suite's result</mark>, not the shipped one's — worth knowing before repeating the number.",
+   built:"1,055.4 KSLOC across 76.9 MB, aimed at embedded and deployment-specific builds.",
+   facts:[["Cases","50,362 · ~2.4M parameterised"],["Coverage","100% branch, 100% MC/DC"]]},
+
+  {c:"3", id:"fuzz",  name:"dbsqlfuzz", grp:"How it is proved", gx:0, gy:4, h:20,
+   sub:"Bad SQL and a bad file, together",
+   does:"Mutates the query and the database file at the same time. That combination is the point — a corrupt database is as much an input as a query is, and testing either alone misses what happens when both are wrong at once.",
+   built:"Built on libFuzzer, from 336 seed files, running about a billion mutations a day.",
+   facts:[["Rate","~1 bn mutations/day"],["Seeds","336"]]},
+];
+
+// Data snippets are real: values taken from SQLite's own documentation.
+const EDGES = [
+  ["api","tok",     "DELETE FROM tbl1 WHERE two&lt;20", "the statement text, as the opcode documentation gives it"],
+  ["tok","parse",   "TK_DELETE · TK_FROM · TK_ID", "tokens, in the order they were read"],
+  ["parse","schema","tbl1 → root page 2", "a name resolved to where its b-tree starts"],
+  ["schema","plan", "CREATE TABLE tbl1(one,two)", "the schema, re-parsed from the text on page 1"],
+  ["parse","gen",   "a parse tree", "what the code generator walks"],
+  ["plan","gen",    "10 paths kept", "the search width once three or more tables join"],
+  ["gen","vdbe",    "2 OpenWrite 0 2 0 3", "one instruction: open tbl1, whose b-tree root is page 2"],
+  ["vdbe","btree",  "4 Column 0 1 2", "read column 1 of the current row into register 2"],
+  ["btree","pager", "page 2 · type 0x0d", "a leaf table page, asked for by number"],
+  ["pager","wal",   "frame · commit", "the changed page appended rather than written in place"],
+  ["pager","jrnl",  "page 2, as it was", "the original, kept so a crash can be undone"],
+  ["pager","vfs",   "xWrite 4,096 B @ 8,192", "one page at its offset — the call that leaves the library"],
+  ["vfs","lock",    "SHARED → RESERVED", "the transition taken before a write begins"],
+  ["wal","lock",    "-shm · read mark", "the wal-index, mmapped and shared between processes"],
+  ["tcl","api",     "51,445 cases", "the suite that ships with the source"],
+  ["th3","api",     "~2.4M instances", "the harness the coverage figures come from"],
+  ["fuzz","api",    "mutated SQL", "one half of what dbsqlfuzz varies"],
+  ["fuzz","pager",  "mutated database file", "the other half, and the reason it finds things"],
+];
+
+// A dashed outline on the floor around a set of blocks, for the parts that
+// are not yours: a vendored dataset, a dependency, a service another team
+// owns. `of` lists node ids and the outline is the box that contains them,
+// so lay the members out next to each other — the outline is the box, and it
+// will swallow anything that happens to sit between them. `label` is drawn on
+// the canvas and wants to be short; `note` is only in the panel, so it can say
+// as much as it needs to: the repository, the licence, whoever to ask.
+const REGIONS = [
+  {label:"Not in the tree", of:["th3","fuzz"],
+   note:"TH3 and dbsqlfuzz belong to SQLite's authors but are not distributed with it. The library is public domain; the two harnesses that establish its coverage and put it through a billion mutations a day are not something you can clone."},
+];
+
+/* ------------------------------------------------------------- geometry */
+
+const SX = 78, SY = 39, W = 32, H = 16;
+const at = n => ({ x:(n.gx - n.gy) * SX, y:(n.gx + n.gy) * SY });
+const byId = Object.fromEntries(NODES.map(n => [n.id, n]));
+
+const NS = "http://www.w3.org/2000/svg";
+const make = (t, a={}) => { const e = document.createElementNS(NS, t);
+  for (const k in a) e.setAttribute(k, a[k]); return e; };
+
+/* ---------------------------------------------------------------- build */
+
+const gRegions = document.getElementById("regions");
+const gEdges = document.getElementById("edges");
+const gDots  = document.getElementById("dots");
+const gNodes = document.getElementById("nodes");
+const gLabels = document.getElementById("labels");
+
+// The outline is a rectangle in grid space, which the projection turns into a
+// diamond lying on the floor — the same plane the grid pattern is drawn on, so
+// it reads as ground rather than as a box floating in front of the blocks.
+// Blocks stand up out of it and are painted over it, which is the point: the
+// region says where a thing sits, not what covers it.
+const REGION_PAD = 0.62;   // grid units, ~48px across at this scale
+const regionPts = [];      // hull corners, so fit() can see them
+
+// The blocks inside a region are drawn dashed too, so a single cube still
+// reads as "not ours" once the reader has panned away from the outline or
+// zoomed past it. The outline says where the boundary is; the dashes say
+// which blocks it is about.
+const inRegion = new Set(REGIONS.flatMap(r => r.of));
+const REGION_DASH = "3.5 2.5";
+
+const regionEls = [];
+for (const r of REGIONS) {
+  const members = r.of.map(id => byId[id]).filter(Boolean);
+  if (!members.length) continue;   // verify.py catches the typo that gets here
+
+  const gx0 = Math.min(...members.map(n => n.gx)) - REGION_PAD;
+  const gx1 = Math.max(...members.map(n => n.gx)) + REGION_PAD;
+  const gy0 = Math.min(...members.map(n => n.gy)) - REGION_PAD;
+  const gy1 = Math.max(...members.map(n => n.gy)) + REGION_PAD;
+  const corner = (gx, gy) => ({ x:(gx - gy) * SX, y:(gx + gy) * SY });
+  const pts = [corner(gx0, gy0), corner(gx1, gy0), corner(gx1, gy1), corner(gx0, gy1)];
+  regionPts.push(...pts);
+
+  const poly = make("polygon", {
+    points:pts.map(p => `${p.x},${p.y}`).join(" "), fill:"none",
+    stroke:"var(--region)", "stroke-width":1, "stroke-dasharray":"5 4",
+  });
+  gRegions.appendChild(poly);
+
+  // Under the south corner, centred — the same place, and for the same
+  // reason, as a node's own name. Blocks stand up and away from the viewer,
+  // so the strip below the front corner is the one part of the drawing
+  // nothing else ever occupies. Above the region reads better on an empty
+  // grid and collides with the neighbours on a full one.
+  // One short line only. `note` deliberately does not appear here: a second
+  // line doubles the width the caption has to find room for, and on a full
+  // grid there is no direction with room for it. It goes in the panel, which
+  // is where a reader is already looking for detail.
+  const south = pts[2];
+  const label = make("text", { x:south.x, y:south.y + 15, "text-anchor":"middle",
+    "font-family":"var(--mono)", "font-size":"9", "letter-spacing":".16em",
+    fill:"var(--region-ink)" });
+  label.textContent = r.label.toUpperCase();
+  gLabels.appendChild(label);
+  regionPts.push({ x:south.x, y:south.y + 21 });
+
+  regionEls.push({ poly, label, ids:new Set(r.of) });
+}
+
+// Back to front, so nearer blocks overlap further ones.
+const order = [...NODES].sort((a,b) => (a.gx + a.gy) - (b.gx + b.gy));
+
+const edgePaths = EDGES.map(([from, to, datum, whence]) => {
+  const a = at(byId[from]), b = at(byId[to]);
+  const mid = { x:(a.x + b.x) / 2, y:(a.y + b.y) / 2 - 26 };
+  const d = `M${a.x} ${a.y} Q${mid.x} ${mid.y} ${b.x} ${b.y}`;
+  const p = make("path", { d, fill:"none", stroke:"#26303D", "stroke-width":1 });
+  gEdges.appendChild(p);
+  return { p, from, to, datum, whence, len:0 };
+});
+edgePaths.forEach(e => { e.len = e.p.getTotalLength(); });
+
+const nodeEls = {};
+for (const n of order) {
+  const { x, y } = at(n);
+  const g = make("g", { transform:`translate(${x} ${y})`, class:"node-hit",
+                        tabindex:"0", role:"button", "aria-label":n.name });
+
+  const top   = `${-W},${-n.h} 0,${-H - n.h} ${W},${-n.h} 0,${H - n.h}`;
+  const left  = `${-W},${-n.h} 0,${H - n.h} 0,${H} ${-W},0`;
+  const right = `${W},${-n.h} 0,${H - n.h} 0,${H} ${W},0`;
+
+  const fL = make("polygon", { points:left,  fill:"var(--face-left)",  stroke:"#2B3644", "stroke-width":1 });
+  const fR = make("polygon", { points:right, fill:"var(--face-right)", stroke:"#2B3644", "stroke-width":1 });
+  const fT = make("polygon", { points:top,   fill:"var(--face-top)",   stroke:"#3A4859", "stroke-width":1 });
+  g.append(fL, fR, fT);
+
+  // Dashed edges for a block inside a region. Only the outline changes —
+  // the faces keep their fills, so the block still reads as solid mass on
+  // the grid rather than as a ghost or a thing that is switched off.
+  if (inRegion.has(n.id)) {
+    for (const f of [fL, fR, fT]) f.setAttribute("stroke-dasharray", REGION_DASH);
+  }
+
+  const code = make("text", { x:0, y:-n.h + 4, "text-anchor":"middle",
+    "font-family":"var(--mono)", "font-size":"11", fill:"#8FA0B5" });
+  code.textContent = n.c;
+  g.appendChild(code);
+
+  // Into the label layer at absolute position, not into this node's group:
+  // blocks are drawn back to front, so a nearer block would otherwise cover
+  // the name of the one behind it. Rendering the page is the only way this
+  // shows up — it looks like a truncated string, not a z-order problem.
+  const label = make("text", { x:x, y:y + H + 15, "text-anchor":"middle",
+    "font-family":"var(--mono)", "font-size":"10.5", fill:"#8894A6" });
+  label.textContent = n.name;
+  gLabels.appendChild(label);
+
+  g.addEventListener("click", () => select(n.id));
+  g.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(n.id); }
+  });
+  gNodes.appendChild(g);
+  nodeEls[n.id] = { g, fT, fL, fR, label, code };
+}
+
+/* ------------------------------------------------------------- the flow */
+
+const dots = edgePaths.flatMap((e, i) =>
+  [0, 0.5].map(offset => {
+    const c = make("circle", { r:3, fill:"var(--orange)", class:"flow-dot" });
+    c.addEventListener("click", ev => { ev.stopPropagation(); inspect(e); });
+    gDots.appendChild(c);
+    return { e, t:(i * 0.11 + offset) % 1, c };
+  })
+);
+
+let running = true, last = performance.now();
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function advance(dt) {
+  for (const d of dots) {
+    d.t = (d.t + dt * 0.055) % 1;
+    const pt = d.e.p.getPointAtLength(d.t * d.e.len);
+    d.c.setAttribute("cx", pt.x);
+    d.c.setAttribute("cy", pt.y);
+    // Brightest at the middle of the run, so the direction of travel reads.
+    d.c.setAttribute("opacity", (0.25 + 0.75 * Math.sin(Math.PI * d.t)).toFixed(3));
+  }
+}
+advance(0);
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (running && !reduced) advance(dt);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ------------------------------------------------------------ pan, zoom */
+
+const svg = document.getElementById("svg");
+const world = document.getElementById("world");
+let view = { x:0, y:0, k:1 }, home = null;
+
+function apply() {
+  world.setAttribute("transform", `translate(${view.x} ${view.y}) scale(${view.k})`);
+}
+function fit() {
+  const r = svg.getBoundingClientRect();
+  // Region outlines reach further than the blocks they hold, so their corners
+  // go in here too — otherwise a region on the edge of the graph is cut off by
+  // the panel and looks like a line that stops for no reason.
+  const pts = NODES.map(at).concat(regionPts);
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  // Padding enough to clear the labels, and a cap that lets a small graph
+  // fill the space it has. At 1.15 the default view sat marooned in the middle
+  // of a wide window with the type too small to read without scrolling in.
+  // Padding is asymmetric on purpose. The graph is about 2:1 — five stages
+  // across, five rows deep, projected — while a stage with an index and a
+  // panel either side is nearer 1.3:1. Width therefore binds, and generous
+  // horizontal padding scaled the whole thing down to 0.87 while leaving a
+  // third of the height empty. 90 clears the labels, which overhang a block by
+  // about 60 on each side, and the rest goes into zoom. Tighter than 140 and
+  // the outermost label is clipped by the panel — found in a render, since the
+  // stage hides its overflow and a cut label just looks like a short name.
+  const w = Math.max(...xs) - Math.min(...xs) + 140;
+  const h = Math.max(...ys) - Math.min(...ys) + 120;
+  view.k = Math.min(r.width / w, r.height / h, 1.7);
+  view.x = r.width / 2 - ((Math.min(...xs) + Math.max(...xs)) / 2) * view.k;
+  view.y = r.height / 2 - ((Math.min(...ys) + Math.max(...ys)) / 2) * view.k;
+  home = { ...view };
+  apply();
+}
+
+let drag = null;
+svg.addEventListener("pointerdown", e => {
+  drag = { x:e.clientX, y:e.clientY, vx:view.x, vy:view.y };
+  svg.classList.add("dragging");
+  svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener("pointermove", e => {
+  if (!drag) return;
+  view.x = drag.vx + (e.clientX - drag.x);
+  view.y = drag.vy + (e.clientY - drag.y);
+  apply();
+});
+svg.addEventListener("pointerup", e => {
+  drag = null; svg.classList.remove("dragging");
+  try { svg.releasePointerCapture(e.pointerId); } catch (_) {}
+});
+svg.addEventListener("wheel", e => {
+  e.preventDefault();
+  const r = svg.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const k = Math.max(0.35, Math.min(2.4, view.k * (e.deltaY < 0 ? 1.08 : 0.926)));
+  view.x = mx - (mx - view.x) * (k / view.k);
+  view.y = my - (my - view.y) * (k / view.k);
+  view.k = k;
+  apply();
+}, { passive:false });
+
+/* ------------------------------------------------------------- chrome */
+
+const statsEl = document.getElementById("stats");
+for (const [k, v, lead] of STATS) {
+  const d = document.createElement("div");
+  d.className = "stat" + (lead ? " lead" : "");
+  d.innerHTML = `<div class="k"></div><div class="v"></div>`;
+  d.querySelector(".k").textContent = k;
+  d.querySelector(".v").textContent = v;
+  statsEl.appendChild(d);
+}
+const ctl = document.createElement("div");
+ctl.className = "controls";
+ctl.innerHTML =
+  `<button id="b-flow" aria-pressed="false">Pause the flow</button>` +
+  `<button id="b-step">Step once</button>` +
+  `<button id="b-reset">Reset view</button>`;
+statsEl.appendChild(ctl);
+
+document.getElementById("b-flow").addEventListener("click", e => {
+  running = !running;
+  e.currentTarget.textContent = running ? "Pause the flow" : "Resume the flow";
+  e.currentTarget.setAttribute("aria-pressed", String(!running));
+});
+document.getElementById("b-step").addEventListener("click", () => advance(0.5));
+document.getElementById("b-reset").addEventListener("click", () => { view = { ...home }; apply(); });
+
+const indexEl = document.getElementById("index");
+let lastGrp = null;
+for (const n of NODES) {
+  if (n.grp !== lastGrp) {
+    const h = document.createElement("div");
+    h.className = "grp"; h.textContent = n.grp;
+    indexEl.appendChild(h); lastGrp = n.grp;
+  }
+  const b = document.createElement("button");
+  b.className = "row"; b.id = "row-" + n.id;
+  b.innerHTML = `<span class="c"></span><span class="n"></span><span class="t"></span>`;
+  b.querySelector(".c").textContent = n.c;
+  b.querySelector(".n").textContent = n.name;
+  b.querySelector(".t").textContent = EDGES.filter(e => e[0] === n.id || e[1] === n.id).length;
+  b.addEventListener("click", () => select(n.id));
+  indexEl.appendChild(b);
+}
+
+/* ------------------------------------------------------------ the panel */
+
+const readEl = document.getElementById("read");
+const tabDoes = document.getElementById("tab-does");
+const tabBuilt = document.getElementById("tab-built");
+// The first node, not a hard-coded id. Naming one here meant every map
+// built from this template opened with an empty panel until its author
+// noticed, because byId[<id from another project>] is undefined and
+// render() throws before it draws anything.
+let current = NODES[0].id, tab = "does";
+
+tabDoes.addEventListener("click", () => { tab = "does"; render(); });
+tabBuilt.addEventListener("click", () => { tab = "built"; render(); });
+
+function select(id) { current = id; render(); }
+
+function highlight() {
+  for (const n of NODES) {
+    const el = nodeEls[n.id], on = n.id === current;
+    el.fT.setAttribute("fill", on ? "#1E4E82" : "var(--face-top)");
+    el.fT.setAttribute("stroke", on ? "var(--blue)" : "#3A4859");
+    el.fL.setAttribute("fill", on ? "#14314F" : "var(--face-left)");
+    el.fR.setAttribute("fill", on ? "#0F2439" : "var(--face-right)");
+    el.label.setAttribute("fill", on ? "#BFD3EA" : "#8894A6");
+    el.code.setAttribute("fill", on ? "#9EC4EE" : "#8FA0B5");
+    const row = document.getElementById("row-" + n.id);
+    if (row) row.setAttribute("aria-current", String(on));
+  }
+  for (const e of edgePaths) {
+    const on = e.from === current || e.to === current;
+    e.p.setAttribute("stroke", on ? "var(--blue)" : "#26303D");
+    e.p.setAttribute("stroke-width", on ? 1.6 : 1);
+  }
+  for (const r of regionEls) {
+    const on = r.ids.has(current);
+    r.poly.setAttribute("stroke", on ? "var(--region-on)" : "var(--region)");
+    r.label.setAttribute("fill", on ? "var(--region-ink-on)" : "var(--region-ink)");
+  }
+  for (const d of dots) {
+    const on = d.e.from === current || d.e.to === current;
+    d.c.setAttribute("fill", on ? "var(--orange)" : "#7A5334");
+    d.c.setAttribute("r", on ? 3.6 : 2.6);
+  }
+}
+
+function render() {
+  const n = byId[current];
+  tabDoes.setAttribute("aria-selected", String(tab === "does"));
+  tabBuilt.setAttribute("aria-selected", String(tab === "built"));
+
+  const facts = (n.facts || []).map(([k, v]) =>
+    `<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+  // Whose code this is, if it is not yours. Shown on both tabs: it is a fact
+  // about the component, not about how it was built.
+  const region = REGIONS.find(r => r.of.includes(n.id));
+  const origin = region
+    ? `<div class="origin"><span class="who">${esc(region.label)}</span>` +
+      (region.note ? `<span class="what">${esc(region.note)}</span>` : "") + `</div>`
+    : "";
+
+  readEl.innerHTML =
+    `<p class="eyebrow">${n.grp}</p>` +
+    `<h2>${n.name}</h2>` +
+    `<p class="sub">${n.sub}</p>` + origin +
+    (tab === "does"
+      ? `<h3>What it does</h3><p>${n.does}</p>` +
+        (facts ? `<h3>Measured</h3><dl class="facts">${facts}</dl>` : "")
+      : `<h3>How it's built</h3><p>${n.built}</p>` +
+        `<h3>Carries</h3>` +
+        EDGES.filter(e => e[0] === n.id).map(e =>
+          `<p class="quiet">→ ${byId[e[1]].name} · <code>${esc(e[2])}</code></p>`).join("") +
+        EDGES.filter(e => e[1] === n.id).map(e =>
+          `<p class="quiet">← ${byId[e[0]].name} · <code>${esc(e[2])}</code></p>`).join(""));
+
+  highlight();
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c]));
+}
+
+function inspect(e) {
+  readEl.innerHTML =
+    `<p class="eyebrow">Data in flight</p>` +
+    `<h2>${byId[e.from].name} → ${byId[e.to].name}</h2>` +
+    `<p class="sub">One snippet, as it crosses</p>` +
+    `<div class="snippet">` +
+      `<div class="lbl">Value</div>` +
+      `<div class="val">${esc(e.datum)}</div>` +
+      `<div class="whence">${e.whence}</div>` +
+    `</div>` +
+    `<p class="quiet">Every value here was taken from SQLite's own documentation and source rather than invented for the diagram. Replace this line with where yours came from — it is the sentence that makes a reader trust the rest.</p>`;
+}
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && e.target === document.body) {
+    e.preventDefault();
+    document.getElementById("b-flow").click();
+  }
+});
+
+addEventListener("resize", fit);
+fit();
+render();
+</script>
