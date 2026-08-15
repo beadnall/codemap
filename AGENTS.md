@@ -13,6 +13,22 @@ still find them.
 You already have this as a skill if it is installed in `~/.claude/skills/` or
 `<repo>/.claude/skills/`. Nothing here to do.
 
+## If you are Grok Build
+
+Install the skill into one of the discovery paths:
+
+```
+~/.grok/skills/codemap/          # or <repo>/.grok/skills/codemap/
+```
+
+Then ask for a map normally — "map this codebase", "codemap this repo",
+"diagram the architecture". Grok Build picks up `SKILL.md` automatically, so
+there is no separate instructions file to copy.
+
+**Delivery.** Write the finished HTML to disk, for example `codemap.html`, and
+tell the user the path. The page is self-contained and opens in any browser
+with no server.
+
 ## If you are another agent
 
 Nothing in the method is Claude-specific. The template is plain HTML and

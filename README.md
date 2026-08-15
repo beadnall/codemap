@@ -55,6 +55,17 @@ team gets it:
 git clone https://github.com/beadnall/codemap.git <your-repo>/.claude/skills/codemap
 ```
 
+**For Grok Build**, which scans its own skills directory and reads `SKILL.md`
+the same way — so it needs no separate instructions file, only the right path:
+
+```bash
+git clone https://github.com/beadnall/codemap.git ~/.grok/skills/codemap
+```
+
+```bash
+git clone https://github.com/beadnall/codemap.git <your-repo>/.grok/skills/codemap
+```
+
 Then ask for a diagram — "map this codebase", "show me how this fits together",
 "diagram the architecture". The skill triggers on the intent, not on a
 particular phrase.
@@ -128,9 +139,11 @@ JavaScript, the scripts are Python, the instructions are markdown. Two things
 do not carry across:
 
 - **Discovery and triggering.** `~/.claude/skills/` and the `name` /
-  `description` frontmatter are Anthropic's Agent Skills format. Another tool
-  will not scan that directory or use the description to decide when to fire,
-  so you point it at the file yourself.
+  `description` frontmatter are Anthropic's Agent Skills format. Most other
+  tools will not scan that directory or use the description to decide when to
+  fire, so you point them at the file yourself. Grok Build is the exception:
+  it scans `~/.grok/skills/` (or `<repo>/.grok/skills/`) and picks up
+  `SKILL.md` on its own, so installing it there is the whole setup.
 - **Delivery.** The last step suggests an artifact or canvas where one exists,
   and writing the file to disk where one does not. The page is self-contained
   and opens in any browser with no server.
@@ -139,6 +152,7 @@ Entry points for the conventions each tool reads:
 
 | Tool | File |
 |---|---|
+| Grok Build | none needed — install to `.grok/skills/` and it reads [SKILL.md](SKILL.md) |
 | Codex, and others following the convention | [AGENTS.md](AGENTS.md) |
 | Cursor | [.cursor/rules/codemap.mdc](.cursor/rules/codemap.mdc) |
 | GitHub Copilot | [.github/copilot-instructions.md](.github/copilot-instructions.md) |
