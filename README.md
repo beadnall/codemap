@@ -16,7 +16,9 @@ code as library code — and the orange dots carry values from its own
 documentation, `2 OpenWrite 0 2 0 3` and page `type 0x0d`, rather than type
 names. The dashed outline marks the two test harnesses that are **not** in the
 public tree, which is where the 100% branch coverage figure actually comes
-from.
+from, and the two blocks drawn as a pair of plates are each one thing built
+twice — an OS interface with a unix and a Windows implementation, a b-tree in
+its table and index forms.
 
 That is the whole point. Every one of those facts took digging, and none of
 them is visible in a file listing.

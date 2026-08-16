@@ -269,8 +269,8 @@ const NODES = [
   {c:"B", id:"btree", name:"B-tree", grp:"Finding the bytes", gx:3, gy:1, h:22, stack:2,
    sub:"Tables and indexes, both",
    does:"Turns a table into pages. Tables and indexes are the same structure here — the first byte of a page header says which, and whether the page is interior or leaf. Four values cover the whole file.",
-   built:"<code>btree.c</code>, the largest single source file in the library at about 407 KB. Page type flags are 0x02 interior index, 0x05 interior table, 0x0a leaf index, 0x0d leaf table.",
-   facts:[["Page types","0x02 · 0x05 · 0x0a · 0x0d"],["Source","~407 KB, the biggest"]]},
+   built:"<code>btree.c</code>, the largest single source file in the library at about 407 KB — <em>one</em> implementation serving both forms, not two. Page type flags are 0x02 interior index, 0x05 interior table, 0x0a leaf index, 0x0d leaf table.",
+   facts:[["The two plates","table b-tree · index b-tree"],["Page types","0x02 · 0x05 · 0x0a · 0x0d"],["Source","~407 KB, the biggest"]]},
 
   {c:"R", id:"pager", name:"Pager", grp:"Finding the bytes", gx:3, gy:2, h:22,
    sub:"Where writes become atomic",
@@ -294,8 +294,8 @@ const NODES = [
   {c:"O", id:"vfs",   name:"OS interface", grp:"Touching the disk", gx:4, gy:1, h:26, stack:2,
    sub:"One interface, two builds",
    does:"All file access goes through a single struct of function pointers. That is why SQLite ports to anything with a filesystem, and why you can hand it storage of your own at runtime without touching the library.",
-   built:"<code>os_unix.c</code> and <code>os_win.c</code>. The unix one runs to about 8,600 lines, the great majority of it concerned with locking rather than with reading and writing.",
-   facts:[["Swappable","yes — sqlite3_vfs_register"],["os_unix.c","~8,600 lines"]]},
+   built:"<code>os_unix.c</code> and <code>os_win.c</code> — two ports, not two VFS objects. The unix file alone registers <mark>a dozen of those</mark>: <code>unix</code>, <code>unix-excl</code>, <code>unix-dotfile</code>, <code>unix-nfs</code>, <code>unix-proxy</code> and more, which are locking strategies rather than platforms. It runs to about 8,600 lines, the great majority of it about locking rather than reading and writing.",
+   facts:[["The two plates","os_unix.c · os_win.c"],["VFSes in the unix one","up to 12"],["Swappable","yes — sqlite3_vfs_register"]]},
 
   {c:"K", id:"lock",  name:"File locking", grp:"Touching the disk", gx:4, gy:2, h:20,
    sub:"Five states, one of them odd",
@@ -552,21 +552,48 @@ function fit() {
   // go in here too — otherwise a region on the edge of the graph is cut off by
   // the panel and looks like a line that stops for no reason.
   const pts = NODES.map(at).concat(regionPts);
+
+  // Blocks stand up out of their anchor, so the top of the tallest one is the
+  // real upper edge of the drawing, not the anchor row.
+  for (const n of NODES) {
+    const p = at(n);
+    pts.push({ x:p.x, y:p.y - n.h - H });
+  }
+
+  // Measure the labels rather than reserving a guessed margin for them. This
+  // used to be a flat 140 across and 120 down, tuned by hand against one
+  // example: labels overhang a block by roughly 60 a side, so 140 cleared the
+  // worst of them. But it is wrong in both directions — too tight for a map
+  // with long names, and on this one it wasted about a tenth of the available
+  // scale on space nothing occupied. getBBox gives the true extent, so the
+  // margin left over is a real margin instead of a fudge factor.
+  let measured = true;
+  try {
+    const texts = [...Object.values(nodeEls).map(e => e.label),
+                   ...regionEls.map(e => e.label)];
+    for (const t of texts) {
+      const b = t.getBBox();
+      // A zero-width box means the text has not been laid out. Some engines
+      // return that instead of throwing, and taking it at face value drags
+      // every bound toward the origin — which on a graph that does not
+      // contain the origin silently zooms the whole map out.
+      if (!b.width) { measured = false; break; }
+      pts.push({ x:b.x, y:b.y }, { x:b.x + b.width, y:b.y + b.height });
+    }
+  } catch (_) {
+    measured = false;   // no layout yet — fall back to the old constants
+  }
+
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-  // Padding enough to clear the labels, and a cap that lets a small graph
-  // fill the space it has. At 1.15 the default view sat marooned in the middle
-  // of a wide window with the type too small to read without scrolling in.
-  // Padding is asymmetric on purpose. The graph is about 2:1 — five stages
-  // across, five rows deep, projected — while a stage with an index and a
-  // panel either side is nearer 1.3:1. Width therefore binds, and generous
-  // horizontal padding scaled the whole thing down to 0.87 while leaving a
-  // third of the height empty. 90 clears the labels, which overhang a block by
-  // about 60 on each side, and the rest goes into zoom. Tighter than 140 and
-  // the outermost label is clipped by the panel — found in a render, since the
-  // stage hides its overflow and a cut label just looks like a short name.
-  const w = Math.max(...xs) - Math.min(...xs) + 140;
-  const h = Math.max(...ys) - Math.min(...ys) + 120;
-  view.k = Math.min(r.width / w, r.height / h, 1.7);
+  const pad = measured ? 28 : 140;
+  const w = Math.max(...xs) - Math.min(...xs) + pad;
+  const h = Math.max(...ys) - Math.min(...ys) + (measured ? 28 : 120);
+  // The cap stops a three-node graph filling the screen with enormous blocks.
+  // It was 1.15, which left the default view marooned in the middle of a wide
+  // window, then 1.7, which this 16-node example ran straight into — it could
+  // take 1.85 before the width bound it. 2.2 leaves the binding edge to the
+  // geometry in every case seen so far.
+  view.k = Math.min(r.width / w, r.height / h, 2.2);
   view.x = r.width / 2 - ((Math.min(...xs) + Math.max(...xs)) / 2) * view.k;
   view.y = r.height / 2 - ((Math.min(...ys) + Math.max(...ys)) / 2) * view.k;
   home = { ...view };
