@@ -81,7 +81,7 @@ codemap/
 ├── SKILL.md              the instructions — mostly about finding facts
 ├── assets/template.html  the working page; four data arrays to replace
 └── scripts/
-    ├── verify.py         fifteen static checks
+    ├── verify.py         seventeen static checks
     └── render.py         headless screenshot, so you can see it
         render.swift      macOS fallback needing no browser
 ```

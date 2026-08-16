@@ -266,7 +266,7 @@ const NODES = [
    facts:[["Operands","P1 – P5"],["Readable via","EXPLAIN"]]},
 
   // ---- finding the bytes
-  {c:"B", id:"btree", name:"B-tree", grp:"Finding the bytes", gx:3, gy:1, h:22,
+  {c:"B", id:"btree", name:"B-tree", grp:"Finding the bytes", gx:3, gy:1, h:22, stack:2,
    sub:"Tables and indexes, both",
    does:"Turns a table into pages. Tables and indexes are the same structure here — the first byte of a page header says which, and whether the page is interior or leaf. Four values cover the whole file.",
    built:"<code>btree.c</code>, the largest single source file in the library at about 407 KB. Page type flags are 0x02 interior index, 0x05 interior table, 0x0a leaf index, 0x0d leaf table.",
@@ -291,8 +291,8 @@ const NODES = [
    facts:[["Better past","~100 MB in one transaction"]]},
 
   // ---- touching the disk
-  {c:"O", id:"vfs",   name:"OS interface", grp:"Touching the disk", gx:4, gy:1, h:26,
-   sub:"Every syscall, through one object",
+  {c:"O", id:"vfs",   name:"OS interface", grp:"Touching the disk", gx:4, gy:1, h:26, stack:2,
+   sub:"One interface, two builds",
    does:"All file access goes through a single struct of function pointers. That is why SQLite ports to anything with a filesystem, and why you can hand it storage of your own at runtime without touching the library.",
    built:"<code>os_unix.c</code> and <code>os_win.c</code>. The unix one runs to about 8,600 lines, the great majority of it concerned with locking rather than with reading and writing.",
    facts:[["Swappable","yes — sqlite3_vfs_register"],["os_unix.c","~8,600 lines"]]},
@@ -448,20 +448,37 @@ for (const n of order) {
   const g = make("g", { transform:`translate(${x} ${y})`, class:"node-hit",
                         tabindex:"0", role:"button", "aria-label":n.name });
 
-  const top   = `${-W},${-n.h} 0,${-H - n.h} ${W},${-n.h} 0,${H - n.h}`;
-  const left  = `${-W},${-n.h} 0,${H - n.h} 0,${H} ${-W},0`;
-  const right = `${W},${-n.h} 0,${H - n.h} 0,${H} ${W},0`;
+  // A node with `stack` is drawn as that many plates sharing the block's total
+  // height, rather than as one solid mass. The two encodings compose: height
+  // still says how much logic is here, and the plate count says how many
+  // things of one kind it is. Splitting the height rather than adding to it is
+  // what keeps them from fighting — a stack of five never outweighs a taller
+  // neighbour just for being subdivided.
+  const plates = n.stack || 1;
+  const gap = plates > 1 ? 2.5 : 0;
+  const thick = (n.h - gap * (plates - 1)) / plates;
 
-  const fL = make("polygon", { points:left,  fill:"var(--face-left)",  stroke:"#2B3644", "stroke-width":1 });
-  const fR = make("polygon", { points:right, fill:"var(--face-right)", stroke:"#2B3644", "stroke-width":1 });
-  const fT = make("polygon", { points:top,   fill:"var(--face-top)",   stroke:"#3A4859", "stroke-width":1 });
-  g.append(fL, fR, fT);
+  const fTs = [], fLs = [], fRs = [];
+  for (let i = 0; i < plates; i++) {
+    const b = i * (thick + gap);   // this plate's underside
+    const u = b + thick;           // and its top
+    const top   = `${-W},${-u} 0,${-H - u} ${W},${-u} 0,${H - u}`;
+    const left  = `${-W},${-u} 0,${H - u} 0,${H - b} ${-W},${-b}`;
+    const right = `${W},${-u} 0,${H - u} 0,${H - b} ${W},${-b}`;
+
+    const fL = make("polygon", { points:left,  fill:"var(--face-left)",  stroke:"#2B3644", "stroke-width":1 });
+    const fR = make("polygon", { points:right, fill:"var(--face-right)", stroke:"#2B3644", "stroke-width":1 });
+    const fT = make("polygon", { points:top,   fill:"var(--face-top)",   stroke:"#3A4859", "stroke-width":1 });
+    // Bottom plate first, so each one paints over the one beneath it.
+    g.append(fL, fR, fT);
+    fLs.push(fL); fRs.push(fR); fTs.push(fT);
+  }
 
   // Dashed edges for a block inside a region. Only the outline changes —
   // the faces keep their fills, so the block still reads as solid mass on
   // the grid rather than as a ghost or a thing that is switched off.
   if (inRegion.has(n.id)) {
-    for (const f of [fL, fR, fT]) f.setAttribute("stroke-dasharray", REGION_DASH);
+    for (const f of [...fLs, ...fRs, ...fTs]) f.setAttribute("stroke-dasharray", REGION_DASH);
   }
 
   const code = make("text", { x:0, y:-n.h + 4, "text-anchor":"middle",
@@ -483,7 +500,7 @@ for (const n of order) {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(n.id); }
   });
   gNodes.appendChild(g);
-  nodeEls[n.id] = { g, fT, fL, fR, label, code };
+  nodeEls[n.id] = { g, fTs, fLs, fRs, label, code };
 }
 
 /* ------------------------------------------------------------- the flow */
@@ -647,10 +664,14 @@ function select(id) { current = id; render(); }
 function highlight() {
   for (const n of NODES) {
     const el = nodeEls[n.id], on = n.id === current;
-    el.fT.setAttribute("fill", on ? "#1E4E82" : "var(--face-top)");
-    el.fT.setAttribute("stroke", on ? "var(--blue)" : "#3A4859");
-    el.fL.setAttribute("fill", on ? "#14314F" : "var(--face-left)");
-    el.fR.setAttribute("fill", on ? "#0F2439" : "var(--face-right)");
+    // Every plate, not just the top one — a stacked node half-lit reads as a
+    // rendering fault rather than as a selection.
+    for (const f of el.fTs) {
+      f.setAttribute("fill", on ? "#1E4E82" : "var(--face-top)");
+      f.setAttribute("stroke", on ? "var(--blue)" : "#3A4859");
+    }
+    for (const f of el.fLs) f.setAttribute("fill", on ? "#14314F" : "var(--face-left)");
+    for (const f of el.fRs) f.setAttribute("fill", on ? "#0F2439" : "var(--face-right)");
     el.label.setAttribute("fill", on ? "#BFD3EA" : "#8894A6");
     el.code.setAttribute("fill", on ? "#9EC4EE" : "#8FA0B5");
     const row = document.getElementById("row-" + n.id);

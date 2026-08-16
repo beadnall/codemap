@@ -120,6 +120,28 @@ def main(path):
     check("no node is unconnected", not orphans,
           f"orphans: {', '.join(orphans)}" if orphans else "")
 
+    # --- stacked nodes have room for their plates --------------------------
+    # `stack: n` splits a node's height into n plates with a 2.5 gap between
+    # them. Past a certain n the plates are thinner than their own outlines and
+    # the block turns into a smudge, which looks like a rendering bug rather
+    # than a value that was set too high.
+    node_block = block(src, "NODES")
+    stacks = [(int(h), int(s)) for h, s in
+              re.findall(r"\bh:\s*(\d+)\s*,\s*stack:\s*(\d+)", node_block)]
+    also = re.findall(r"\bstack:\s*(\d+)\s*,\s*h:\s*(\d+)", node_block)
+    stacks += [(int(h), int(s)) for s, h in also]
+
+    bad_n = [s for _, s in stacks if not 2 <= s <= 5]
+    check("stack counts are 2-5", not bad_n,
+          f"out of range: {', '.join(map(str, bad_n))}" if bad_n
+          else f"{len(stacks)} stacked nodes")
+
+    thin = [(h, s, round((h - 2.5 * (s - 1)) / s, 1)) for h, s in stacks
+            if (h - 2.5 * (s - 1)) / s < 3]
+    check("stacked plates are thick enough to read", not thin,
+          "; ".join(f"h:{h} stack:{s} gives {t}px plates" for h, s, t in thin) if thin
+          else "")
+
     # --- regions enclose something real ------------------------------------
     # A region names its members by id and draws the box that contains them.
     # An id that matches nothing is dropped at build time, so a region with a

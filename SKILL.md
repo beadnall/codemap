@@ -89,6 +89,32 @@ Block **height carries weight**: give the parts that hold the most logic taller
 blocks. A reader scanning the diagram should be able to see where the mass of
 the system is without reading a word.
 
+### Several of a kind
+
+Where a block is really *n* variants of one thing — two implementations of an
+interface, the table and index forms of one structure, four parsers with the
+same shape — set `stack: n` and it draws as that many plates rather than one
+solid block.
+
+```js
+{c:"O", id:"vfs", name:"OS interface", gx:4, gy:1, h:26, stack:2, …}
+```
+
+The plates **split** the height rather than adding to it, so the two encodings
+stay independent: height still says how much logic is here, and the plate count
+says how many things of one kind it is. A stack of four never outweighs a taller
+neighbour just for being subdivided.
+
+Keep `n` between 2 and 5, and keep it *true*. If something is seven files of one
+kind, don't draw five plates and hope nobody counts — stack at the number of
+genuine variants, or leave it solid and put the figure in `facts`. The plate
+count is a claim like every other number in the diagram.
+
+Stacking is also a reason to **merge nodes**. If you find yourself drawing three
+near-identical blocks side by side, they are usually one stacked block with the
+differences described in the panel — and merging buys back a node to spend on
+something that isn't a repetition.
+
 For each node write three things:
 
 - **`does`** — what it is for, in the reader's terms. This is where a measured
@@ -214,9 +240,9 @@ and skips rather than failing when there is no engine to run.
 node, bun, deno, or JavaScriptCore on a Mac. A syntax error is reported; a `ReferenceError:
 Can't find variable: document` means the script is **valid** — it compiled and
 then failed on the DOM it does not have. It also checks that every edge names a
-real node, that every region encloses real nodes, that the default selection
-resolves, that node names and region labels fit under a block, and that nothing
-external is referenced.
+real node, that every region encloses real nodes, that a stacked node's plates
+are thick enough to see, that the default selection resolves, that node names
+and region labels fit under a block, and that nothing external is referenced.
 
 A region with a mistyped id is the one to watch for: unknown ids are dropped
 when the page builds, so the outline silently shrinks around the members that
