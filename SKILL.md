@@ -110,13 +110,19 @@ kind, don't draw five plates and hope nobody counts — stack at the number of
 genuine variants, or leave it solid and put the figure in `facts`. The plate
 count is a claim like every other number in the diagram.
 
-**Name the variants in the panel, always.** A stack makes a reader ask "two
-of what?" and the canvas cannot answer — the block only carries its name. If
-the panel does not say, the plates are decoration that provokes a question and
-withholds the answer. Put the variants in `facts` as a pair, and be exact about
-what is doubled: two *implementations* of one interface is a different claim
-from one implementation serving two *forms*, and a reader who knows the codebase
-will notice which you meant.
+**Name the variants in `does`, always.** A stack makes a reader ask "two of
+what?" and the canvas cannot answer — the block only carries its name. That
+question belongs in `does`, which is the tab a reader lands on and the field
+that says what the thing *is*. Putting it in `facts` instead reads as a
+category error, because `facts` is headed "Measured" and a list of variants is
+not a measurement; a count of them can go there as well, but the explanation
+cannot.
+
+Be exact about what is doubled, too. Two *implementations* of one interface is
+a different claim from one implementation serving two *forms*, and a reader who
+knows the codebase will notice which you meant. Watch for `does` text that
+contradicts the drawing — "a single struct of function pointers" above a block
+drawn as two plates sends the reader back to check which is wrong.
 
 Stacking is also a reason to **merge nodes**. If you find yourself drawing three
 near-identical blocks side by side, they are usually one stacked block with the

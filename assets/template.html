@@ -270,7 +270,7 @@ const NODES = [
    sub:"Tables and indexes, both",
    does:"Turns a table into pages. Tables and indexes are the same structure here — the first byte of a page header says which, and whether the page is interior or leaf. Four values cover the whole file.",
    built:"<code>btree.c</code>, the largest single source file in the library at about 407 KB — <em>one</em> implementation serving both forms, not two. Page type flags are 0x02 interior index, 0x05 interior table, 0x0a leaf index, 0x0d leaf table.",
-   facts:[["The two plates","table b-tree · index b-tree"],["Page types","0x02 · 0x05 · 0x0a · 0x0d"],["Source","~407 KB, the biggest"]]},
+   facts:[["Forms","2 — table and index"],["Page types","0x02 · 0x05 · 0x0a · 0x0d"],["Source","~407 KB, the biggest"]]},
 
   {c:"R", id:"pager", name:"Pager", grp:"Finding the bytes", gx:3, gy:2, h:22,
    sub:"Where writes become atomic",
@@ -293,9 +293,9 @@ const NODES = [
   // ---- touching the disk
   {c:"O", id:"vfs",   name:"OS interface", grp:"Touching the disk", gx:4, gy:1, h:26, stack:2,
    sub:"One interface, two builds",
-   does:"All file access goes through a single struct of function pointers. That is why SQLite ports to anything with a filesystem, and why you can hand it storage of your own at runtime without touching the library.",
+   does:"All file access goes through one struct of function pointers, implemented <mark>once per platform</mark> — a unix build and a Windows build, and that pair is the entire porting layer. It is why SQLite runs on anything with a filesystem, and why you can hand it storage of your own at runtime without touching the library.",
    built:"<code>os_unix.c</code> and <code>os_win.c</code> — two ports, not two VFS objects. The unix file alone registers <mark>a dozen of those</mark>: <code>unix</code>, <code>unix-excl</code>, <code>unix-dotfile</code>, <code>unix-nfs</code>, <code>unix-proxy</code> and more, which are locking strategies rather than platforms. It runs to about 8,600 lines, the great majority of it about locking rather than reading and writing.",
-   facts:[["The two plates","os_unix.c · os_win.c"],["VFSes in the unix one","up to 12"],["Swappable","yes — sqlite3_vfs_register"]]},
+   facts:[["Ports","2 — os_unix.c, os_win.c"],["VFSes in the unix one","up to 12"],["Swappable","yes — sqlite3_vfs_register"]]},
 
   {c:"K", id:"lock",  name:"File locking", grp:"Touching the disk", gx:4, gy:2, h:20,
    sub:"Five states, one of them odd",
